@@ -45,6 +45,81 @@ class EditableTable extends StatefulWidget {
 class _EditableTableState extends State<EditableTable> {
   final double fontSizeForColumns = 24;
 
+
+   //----------------------EDIT USER WINDOW-------------------------
+// Define a global key for the form
+final _formKey = GlobalKey<FormState>();
+
+final _passwordController = TextEditingController();
+final _roleController = TextEditingController(); // This controller is not needed for the DropdownButtonFormField
+
+void showEditUserDialog(BuildContext context, Map<String, dynamic> user, Function onSave) {
+  _passwordController.text = user['Password'];
+
+  // Initialize the role value with the user's current role
+  String selectedRole = user['Role'];
+
+  showDialog(
+    context: context,
+    builder: (context) {
+      return AlertDialog(
+        title: Text('User: ${user['Username']}'),
+        content: Form(
+          key: _formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              TextFormField(
+                controller: _passwordController,
+                decoration: InputDecoration(labelText: 'Password'),
+                validator: (value) {
+                  if (value!.isEmpty) {
+                    return 'Password is required';
+                  } else if (value.length < 4) {
+                    return 'Password must be at least 4 characters long';
+                  } else if (!RegExp(r'^[a-zA-Z0-9]*$').hasMatch(value)) {
+                    return 'Password can only contain English letters and numbers';
+                  }
+                  return null;
+                },
+              ),
+              DropdownButtonFormField<String>(
+                value: selectedRole,
+                items: ['Engineer', 'User'].map((String role) {
+                  return DropdownMenuItem<String>(
+                    value: role,
+                    child: Text(role),
+                  );
+                }).toList(),
+                onChanged: (value) {
+                  // Update the selected role when the user makes a selection
+                  selectedRole = value!;
+                },
+                decoration: InputDecoration(labelText: 'Role'),
+              ),
+            ],
+          ),
+        ),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () {
+              if (_formKey.currentState!.validate()) {
+                // Update the user information with the edited values
+                user['Password'] = _passwordController.text;
+                user['Role'] = selectedRole; 
+                Navigator.of(context).pop();
+                onSave();
+              }
+            },
+            child: Text('Save'),
+          ),
+        ],
+      );
+    },
+  );
+}
+
+
   //----------------------EDITABLE DATA TABLE--------------------------
 
   @override
@@ -128,7 +203,7 @@ Widget build(BuildContext context) {
                         IconButton(
                           icon: Icon(Icons.delete),
                           onPressed: () {
-                            widget.onDeleteAccount(row['ID']);
+                            _confirmDeleteDialog(row['ID']);
                           },
                         ),
                       ],
@@ -158,7 +233,38 @@ Widget build(BuildContext context) {
     );
   }
 }
+//----------------------CONFIRM DELETE DIALOG--------------------------------
+
+Future<void> _confirmDeleteDialog(int accountId) async {
+    return showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: Text('Delete Account'),
+          content: Text('Are you sure you want to delete this account?'),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop(); // Bezárja a dialogot
+              },
+              child: Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () {
+                widget.onDeleteAccount(accountId); // Törölje az fiókot
+                Navigator.of(context).pop(); // Bezárja a dialogot
+              },
+              child: Text('Confirm'),
+            ),
+          ],
+        );
+      },
+    );
+  }
 }
+
+
+
  //----------------------BUILD--------------------------
 
 class _Container1State extends State<Container1> {
@@ -346,37 +452,6 @@ void _downloadDatabase() async {
       }
     }
   }
-
-//---------------------UPDATE ACCOUNT IN BACKEND----------------------------------
-
-Future<void> updateAccount(int accountId, String username, String pin, String role) async {
-  final String apiUrl = 'http://localhost:${widget.port}/api/v1/account/update'; // Replace with your API endpoint
-
-  try {
-    final response = await http.put(
-      Uri.parse(apiUrl),
-      body: jsonEncode({
-        'accountId': accountId,
-        'username': username,
-        'pin': pin,
-        'role': role,
-      }),
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    );
-
-    if (response.statusCode == 200) {
-      fetchDataFromBackend();
-    } else {
-      print('HTTP Error: ${response.statusCode}');
-      print('Response Body: ${response.body}');
-    }
-  } catch (error) {
-    print('Error: $error');
-  }
-}
-
 //----------------------DATA FETCH FROM BACKEND--------------------------
 
 Future<void> fetchDataFromBackend() async {
@@ -407,9 +482,38 @@ Future<void> fetchDataFromBackend() async {
     print("Error fetching data from the backend: $e");
   }
 }
+//---------------------UPDATE ACCOUNT IN BACKEND----------------------------------
+
+Future<void> updateAccount(int accountId, String username, String pin, String role) async {
+  final String apiUrl = 'http://localhost:${widget.port}/api/v1/account/update'; // Replace with your API endpoint
+
+  try {
+    final response = await http.put(
+      Uri.parse(apiUrl),
+      body: jsonEncode({
+        'accountId': accountId,
+        'username': username,
+        'pin': pin,
+        'role': role,
+      }),
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    );
+
+    if (response.statusCode == 200) {
+      fetchDataFromBackend();
+    } else {
+      print('HTTP Error: ${response.statusCode}');
+      print('Response Body: ${response.body}');
+    }
+  } catch (error) {
+    print('Error: $error');
+  }
+}
 
 //----------------------CREATE ACCOUNT TO BACKEND--------------------------
-Future<void> createAccount() async {
+/* Future<void> createAccount() async {
   try {
     final response = await http.post(
       Uri.parse('http://localhost:${widget.port}/api/v1/account/create'),
@@ -444,8 +548,45 @@ Future<void> createAccount() async {
   } catch (error) {
     print('Error: $error');
   }
-}
+} */
+Future<void> createAccount(String username, String pin, String role) async {
+  final String apiUrl = 'http://localhost:${widget.port}/api/v1/account/create'; // Replace with your API endpoint
 
+  try {
+    final response = await http.post(
+      Uri.parse(apiUrl),
+      body: jsonEncode({
+        'username': username,
+        'pin': pin,
+        'role': role,
+      }),
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    );
+
+    if (response.statusCode == 200) {
+      fetchDataFromBackend();
+    } else {
+      final responseBody = jsonDecode(response.body);
+      final errorMessage = responseBody['error'];
+
+      if (errorMessage != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(errorMessage),
+            duration: Duration(seconds: 5),
+          ),
+        );
+      } else {
+        print('HTTP Error: ${response.statusCode}');
+        print('Response Body: ${response.body}');
+      }
+    }
+  } catch (error) {
+    print('Error: $error');
+  }
+}
 //----------------------DELETE ACCOUNT FROM BACKEND--------------------------
 
 Future<void> deleteAccount(int accountId) async {
@@ -474,67 +615,53 @@ Future<void> deleteAccount(int accountId) async {
 
   //----------------------ACCOUNT CREATOR WINDOW-------------------------
 
-Future<void> showCreateUserDialog(BuildContext context) async {
-  return showDialog(
-    context: context,
-    builder: (context) {
-      return AlertDialog(
-        title: Center(child: Text('Create User')),
-        content: Container(
-          height: 220.0, // Adjust the height as needed
-          child: CreateUserForm(
-            createAccount: createAccount,
-            onCreateUser: () {
-              fetchDataFromBackend();
-              createUsernameController.clear();
-              createPinController.clear();
-              createRoleController.clear();
-              Navigator.of(context).pop();
-            },
-            createUsernameController: createUsernameController,
-            createPinController: createPinController,
-            createRoleController: createRoleController,
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.of(context).pop(); // Close the dialog
-            },
-            child: Text('Cancel'),
-          ),
-        ],
-      );
-    },
-  );
-}
-}
 
- //----------------------EDIT USER WINDOW-------------------------
+
+bool isUsernameTaken(String name) {
+  for (Map<String, dynamic> userData in tableData) {
+    if (userData['Username'] == name) {
+      return true;
+    }
+  }
+  return false;
+}
 // Define a global key for the form
-final _formKey = GlobalKey<FormState>();
+final _formKey2 = GlobalKey<FormState>();
 
-final _passwordController = TextEditingController();
-final _roleController = TextEditingController(); // This controller is not needed for the DropdownButtonFormField
+final _usernameController2 = TextEditingController();
+final _passwordController2 = TextEditingController();
+final _roleController2 = TextEditingController(); // This controller is not needed for the DropdownButtonFormField
 
-void showEditUserDialog(BuildContext context, Map<String, dynamic> user, Function onSave) {
-  _passwordController.text = user['Password'];
+void showCreateUserDialog(BuildContext context) {
 
-  // Initialize the role value with the user's current role
-  String selectedRole = user['Role'];
+  String selectedRole = "User";
 
   showDialog(
     context: context,
     builder: (context) {
       return AlertDialog(
-        title: Text('User: ${user['Username']}'),
+        title: Text('Create User'),
         content: Form(
-          key: _formKey,
+          key: _formKey2,
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: <Widget>[
+                            TextFormField(
+                controller: _usernameController2,
+                decoration: InputDecoration(labelText: 'Username'),
+                validator: (value) {
+                  if (value!.isEmpty) {
+                    return 'Username is required';
+                  } else if (isUsernameTaken(value)) {
+                    return 'This username is taken';
+                  } else if (!RegExp(r'^[a-zA-Z]*$').hasMatch(value)) {
+                    return 'Username can only contain English letters';
+                  }
+                  return null;
+                },
+              ),
               TextFormField(
-                controller: _passwordController,
+                controller: _passwordController2,
                 decoration: InputDecoration(labelText: 'Password'),
                 validator: (value) {
                   if (value!.isEmpty) {
@@ -567,12 +694,12 @@ void showEditUserDialog(BuildContext context, Map<String, dynamic> user, Functio
         actions: <Widget>[
           TextButton(
             onPressed: () {
-              if (_formKey.currentState!.validate()) {
-                // Update the user information with the edited values
-                user['Password'] = _passwordController.text;
-                user['Role'] = selectedRole; 
+              if (_formKey2.currentState!.validate()) {
                 Navigator.of(context).pop();
-                onSave();
+                createAccount(_usernameController2.text,_passwordController2.text,selectedRole);
+                                // Clear the text fields
+                _usernameController2.clear();
+                _passwordController2.clear();
               }
             },
             child: Text('Save'),
@@ -583,89 +710,4 @@ void showEditUserDialog(BuildContext context, Map<String, dynamic> user, Functio
   );
 }
 
-
-
-//----------------------USER CREATION--------------------------
-
-class CreateUserForm extends StatefulWidget {
-  
-  final void Function() onCreateUser;
-  final Future<void> Function() createAccount;
-  final TextEditingController createUsernameController;
-  final TextEditingController createPinController;
-  final TextEditingController createRoleController;
-
-  CreateUserForm({
-    required this.onCreateUser,
-    required this.createAccount,
-    required this.createUsernameController,
-    required this.createPinController,
-    required this.createRoleController,
-  });
-
-  @override
-  _CreateUserFormState createState() => _CreateUserFormState();
-}
-
-class _CreateUserFormState extends State<CreateUserForm> {
- @override
-Widget build(BuildContext context) {
-  final padding = EdgeInsets.all(8.0); // Adjust the padding as needed
-  final height = 50.0; // Adjust the height as needed
-
-  return Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      Container(
-        padding: padding,
-        height: height,
-        child: TextField(
-          controller: widget.createUsernameController,
-          decoration: InputDecoration(labelText: 'Username',
-          floatingLabelBehavior: FloatingLabelBehavior.never),
-
-        ),
-      ),
-      Container(
-        padding: padding,
-        height: height,
-        child: TextField(
-          controller: widget.createPinController,
-          decoration: InputDecoration(labelText: 'Password',
-          floatingLabelBehavior: FloatingLabelBehavior.never),
-        ),
-      ),
-      Container(
-        padding: padding,
-        height: height,
-        child: TextField(
-          controller: widget.createRoleController,
-          decoration: InputDecoration(labelText: 'Role',
-          floatingLabelBehavior: FloatingLabelBehavior.never),
-        ),
-      ),
-      Container(
-        padding: padding,
-        margin: EdgeInsets.only(top: 10),
-        height: height,
-        child: Center(
-          child: ElevatedButton(
-            onPressed: () async {
-            await widget.createAccount();
-          widget.onCreateUser();
-          },
-      style: ElevatedButton.styleFrom(
-        primary: Colors.blue, // Change button color to blue
-      ),
-      child: Text(
-        'Create',
-        style: TextStyle(fontSize: 18), // Increase font size
-      ),
-      ),
-      ),
-      ),
-    ],
-  );
-}
-  
-  }
+  } 
