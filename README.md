@@ -1,4 +1,4 @@
-Sqlite database maganer fornted in flutter
+Sqlite database manager fornted in flutter
 
 To docker ->
 
