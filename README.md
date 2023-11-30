@@ -1,16 +1,13 @@
-# app_test
+Sqlite database maganer fornted in flutter
 
-A new Flutter project.
+To docker ->
 
-## Getting Started
+docker build -t flutterapp:latest . -f Dockerfile
 
-This project is a starting point for a Flutter application.
+docker run -p 1212:80 -e PORT=9999 flutterapp
+                 ^
+                 |
+http://localhost:1212/
 
-A few resources to get you started if this is your first Flutter project:
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
-
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+PORT* running port of the backend
